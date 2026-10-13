@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Kopt2026.App/Kopt2026.App.csproj" />
+    <Project Path="src/Kopt2026.Application/Kopt2026.Application.csproj" />
+    <Project Path="src/Kopt2026.Domain/Kopt2026.Domain.csproj" />
+    <Project Path="src/Kopt2026.Export/Kopt2026.Export.csproj" />
+    <Project Path="src/Kopt2026.Language/Kopt2026.Language.csproj" />
+    <Project Path="src/Kopt2026.Persistence/Kopt2026.Persistence.csproj" />
+    <Project Path="src/Kopt2026.Solver.Abstractions/Kopt2026.Solver.Abstractions.csproj" />
+    <Project Path="src/Kopt2026.Solver.Highs/Kopt2026.Solver.Highs.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Kopt2026.Tests/Kopt2026.Tests.csproj" />
+  </Folder>
+</Solution>

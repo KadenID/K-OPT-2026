@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Platforms>x64</Platforms>
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Kopt2026.Application\Kopt2026.Application.csproj" />
+    <ProjectReference Include="..\Kopt2026.Domain\Kopt2026.Domain.csproj" />
+    <ProjectReference Include="..\Kopt2026.Export\Kopt2026.Export.csproj" />
+    <ProjectReference Include="..\Kopt2026.Language\Kopt2026.Language.csproj" />
+    <ProjectReference Include="..\Kopt2026.Persistence\Kopt2026.Persistence.csproj" />
+    <ProjectReference Include="..\Kopt2026.Solver.Abstractions\Kopt2026.Solver.Abstractions.csproj" />
+    <ProjectReference Include="..\Kopt2026.Solver.Highs\Kopt2026.Solver.Highs.csproj" />
+  </ItemGroup>
+</Project>

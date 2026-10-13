@@ -1,0 +1,29 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Kopt2026.Application\Kopt2026.Application.csproj" />
+    <ProjectReference Include="..\..\src\Kopt2026.App\Kopt2026.App.csproj" />
+    <ProjectReference Include="..\..\src\Kopt2026.Language\Kopt2026.Language.csproj" />
+    <ProjectReference Include="..\..\src\Kopt2026.Persistence\Kopt2026.Persistence.csproj" />
+    <ProjectReference Include="..\..\src\Kopt2026.Solver.Highs\Kopt2026.Solver.Highs.csproj" />
+  </ItemGroup>
+</Project>

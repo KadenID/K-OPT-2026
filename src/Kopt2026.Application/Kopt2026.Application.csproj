@@ -1,0 +1,14 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Kopt2026.Domain\Kopt2026.Domain.csproj" />
+    <ProjectReference Include="..\Kopt2026.Language\Kopt2026.Language.csproj" />
+    <ProjectReference Include="..\Kopt2026.Solver.Abstractions\Kopt2026.Solver.Abstractions.csproj" />
+  </ItemGroup>
+</Project>

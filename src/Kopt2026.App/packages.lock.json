@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net10.0-windows7.0": {
+      "Highs.Native": {
+        "type": "Transitive",
+        "resolved": "1.15.1",
+        "contentHash": "bQgr69gbgGJbLn+Lc6Yhx7gt2Gkc97kHkJ+A5XuidcWkH+lxmb7YS7ivxHiGomA0CZybF8SzwCUpaMMLRYvNBA=="
+      },
+      "kopt2026.application": {
+        "type": "Project",
+        "dependencies": {
+          "Kopt2026.Domain": "[1.0.0, )",
+          "Kopt2026.Language": "[1.0.0, )",
+          "Kopt2026.Solver.Abstractions": "[1.0.0, )"
+        }
+      },
+      "kopt2026.domain": {
+        "type": "Project"
+      },
+      "kopt2026.export": {
+        "type": "Project",
+        "dependencies": {
+          "Kopt2026.Domain": "[1.0.0, )",
+          "Kopt2026.Solver.Abstractions": "[1.0.0, )"
+        }
+      },
+      "kopt2026.language": {
+        "type": "Project",
+        "dependencies": {
+          "Kopt2026.Domain": "[1.0.0, )"
+        }
+      },
+      "kopt2026.persistence": {
+        "type": "Project",
+        "dependencies": {
+          "Kopt2026.Language": "[1.0.0, )"
+        }
+      },
+      "kopt2026.solver.abstractions": {
+        "type": "Project",
+        "dependencies": {
+          "Kopt2026.Domain": "[1.0.0, )"
+        }
+      },
+      "kopt2026.solver.highs": {
+        "type": "Project",
+        "dependencies": {
+          "Highs.Native": "[1.15.1, )",
+          "Kopt2026.Domain": "[1.0.0, )",
+          "Kopt2026.Solver.Abstractions": "[1.0.0, )"
+        }
+      }
+    }
+  }
+}

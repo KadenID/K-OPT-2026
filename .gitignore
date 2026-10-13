@@ -1,0 +1,57 @@
+# Build and test outputs
+[Bb]in/
+[Oo]bj/
+artifacts/
+dist/
+[Tt]est[Rr]esult*/
+*.trx
+*.coverage
+*.coveragexml
+coverage*.json
+coverage*.xml
+*.binlog
+
+# Local verification and archived work
+**/_x/
+
+# Visual Studio and user-specific state
+.vs/
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Generated binaries, logs, caches, and temporary files
+*.dll
+*.exe
+*.pdb
+*.cache
+*.log
+*.tmp
+*.tlog
+*.ilk
+*.obj
+*.pch
+*.iobj
+*.ipdb
+~$*
+*~
+
+# Secrets and deployment credentials
+.env
+.env.*
+!.env.example
+*.pfx
+*.p12
+*.pem
+*.key
+*.publishsettings
+*.pubxml.user
+
+# OS metadata
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/

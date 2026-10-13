@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net10.0": {
+      "kopt2026.domain": {
+        "type": "Project"
+      },
+      "kopt2026.solver.abstractions": {
+        "type": "Project",
+        "dependencies": {
+          "Kopt2026.Domain": "[1.0.0, )"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,6 @@
+MAX
+3 X1 + 2 X2
+ST
+CAPACITY: 2 X1 + X2 <= 10
+DEMAND: X1 + 3 X2 <= 12
+END
