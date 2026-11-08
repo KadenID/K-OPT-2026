@@ -35,12 +35,3 @@ dotnet run --project kanban-board/src/Kopt2026.App/Kopt2026.App.csproj
 - 소수 자릿수 설정은 표시를 반올림하며 계산값의 정밀도는 유지합니다. 문서를 변경하면 이전 결과를 비웁니다.
 
 새 문서는 UTF-8(BOM 없음)로 원자적으로 저장합니다. 레거시 CP949 문서는 자동 감지하고 구형 문법 가져오기는 첫 저장을 다른 이름으로 유도해 원본을 보호합니다.
-
-## 저장소 구성
-
-- `kanban-board/src`, `tests`, `samples`: 소스·시험·예제.
-- `kanban-board/Kopt2026.slnx`: 개발 솔루션.
-- `kanban-board/tools`: 로컬 유지보수 도구.
-- `kanban-board-docs/public`: 사용자 설명서·이용 조건·공개 문서.
-
-설명서와 고지는 `kanban-board-docs/public`의 원문을 수정합니다. 새 배포 패키지에는 `public/legal/THIRD-PARTY-NOTICES.txt`를 함께 넣으세요. 이미 생성된 배포 파일은 소스나 문서 수정만으로 자동 갱신되지 않습니다.
