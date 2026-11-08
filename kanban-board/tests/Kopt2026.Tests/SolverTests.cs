@@ -21,11 +21,13 @@ public sealed class SolverTests
         Assert.Equal(OptimumMultiplicity.Unique, result.Solve.AlternativeOptima!.Multiplicity);
     }
 
-    [Fact]
-    public async Task Solves_User_Model_With_Objective_Constant()
+    [Theory]
+    [InlineData("17 X1 + 10 X2 + 21")]
+    [InlineData("17 X1 +\n  10 X2\n# constant\n + 21")]
+    public async Task Solves_User_Model_With_Objective_Constant(string objective)
     {
         var engine = new KoptEngine(new OptParser(), new HighsSolverAdapter());
-        var source = SourceDocument.FromText("MAX\n17 X1 + 10 X2 + 21\nST\n2 X1 + X2 <= 1497\nX1 + X2 <= 1199\nX1 <= 499\nEND\n");
+        var source = SourceDocument.FromText($"MAX\n{objective}\nST\n2 X1 + X2 <= 1497\nX1 + X2 <= 1199\nX1 <= 499\nEND\n");
         var result = await engine.RunAsync(source, new SolveOptions(), CancellationToken.None);
 
         Assert.True(result.Parse.IsValid);

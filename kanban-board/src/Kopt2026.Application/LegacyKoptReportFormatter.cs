@@ -9,8 +9,10 @@ public static class LegacyKoptReportFormatter
 {
     public const string EmptyReport = "최적화 실행 후 원본 K-OPT 형식의 호환 출력이 표시됩니다.";
 
-    public static string Format(SolveResult result)
+    public static string Format(SolveResult result, int? decimalPlaces = null)
     {
+        if (decimalPlaces is int digits && !ResultDisplayPrecision.IsValid(digits)) throw new ArgumentOutOfRangeException(nameof(decimalPlaces));
+        string FormatNumber(double? value) => LegacyKoptReportFormatter.FormatNumber(value, decimalPlaces);
         var report = new StringBuilder();
         report.AppendLine("*** 원본 K-OPT 형식 호환 출력 ***");
         report.AppendLine("※ HiGHS 계산 결과를 원본 K-OPT 표 형식으로 재구성했습니다.");
@@ -50,12 +52,13 @@ public static class LegacyKoptReportFormatter
             foreach (var warning in result.Warnings) report.AppendLine($"- {warning}");
         }
 
-        AppendSensitivity(report, result.Sensitivity);
+        AppendSensitivity(report, result.Sensitivity, decimalPlaces);
         return report.ToString();
     }
 
-    private static void AppendSensitivity(StringBuilder report, SensitivityAnalysisInfo? sensitivity)
+    private static void AppendSensitivity(StringBuilder report, SensitivityAnalysisInfo? sensitivity, int? decimalPlaces)
     {
+        string FormatNumber(double? value) => LegacyKoptReportFormatter.FormatNumber(value, decimalPlaces);
         report.AppendLine();
         report.AppendLine();
         report.AppendLine("*** 민 감 도 분 석 ***");
@@ -109,12 +112,13 @@ public static class LegacyKoptReportFormatter
         ? value.ToString("#,##0", CultureInfo.InvariantCulture)
         : "정보 없음";
 
-    private static string FormatNumber(double? value)
+    private static string FormatNumber(double? value, int? decimalPlaces)
     {
         if (value is null) return "-";
         if (double.IsPositiveInfinity(value.Value)) return "무한대";
         if (double.IsNegativeInfinity(value.Value)) return "-무한대";
         if (double.IsNaN(value.Value)) return "NaN";
+        if (decimalPlaces is int digits) return ResultNumberFormatter.Format(value, digits);
         var normalized = Math.Abs(value.Value) < 5e-13 ? 0d : value.Value;
         return normalized.ToString("#,##0.00000", CultureInfo.InvariantCulture);
     }

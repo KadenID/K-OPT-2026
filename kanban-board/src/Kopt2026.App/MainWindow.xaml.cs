@@ -1,10 +1,12 @@
 using System.IO;
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using Microsoft.Win32;
 using Kopt2026.Application;
+using Kopt2026.Domain;
 using Kopt2026.Export;
 using Kopt2026.Language;
 using Kopt2026.Persistence;
@@ -15,31 +17,54 @@ namespace Kopt2026.App;
 public partial class MainWindow : Window
 {
     private readonly DocumentStore documents = new();
-    private readonly UserSettingsStore settings = new();
+    private readonly UserSettingsStore settings;
     private readonly ResultExporter exporter = new();
     private readonly LegacyKoptImporter legacyImporter;
     private readonly MainViewModel viewModel;
     private string? currentPath;
+    private Task pendingSettingsSave = Task.CompletedTask;
+    private bool waitingForSettings;
 
-    public MainWindow()
+    public MainWindow() : this(new UserSettingsStore()) { }
+
+    public MainWindow(UserSettingsStore settings)
     {
+        this.settings = settings;
         InitializeComponent();
         var parser = new OptParser();
         legacyImporter = new LegacyKoptImporter(parser);
         viewModel = new MainViewModel(new KoptEngine(parser, new HighsSolverAdapter()));
         DataContext = viewModel;
         ApplyResultHeaders(true);
+        for (var digits = ResultDisplayPrecision.Minimum; digits <= ResultDisplayPrecision.Maximum; digits++)
+        {
+            var item = new MenuItem
+            {
+                Header = digits == ResultDisplayPrecision.Default ? $"{digits}자리 (기본값)" : $"{digits}자리",
+                Tag = digits,
+                IsCheckable = true
+            };
+            item.Click += DecimalPlaces_Click;
+            DecimalPlacesMenuItem.Items.Add(item);
+        }
+        UpdateDecimalPlacesMenu();
         Loaded += MainWindow_Loaded;
+        Closing += MainWindow_Closing;
     }
 
-    private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
+    private async void MainWindow_Loaded(object sender, RoutedEventArgs e) => await LoadSettingsAsync();
+
+    private async Task LoadSettingsAsync()
     {
         var loaded = await settings.LoadAsync();
         KoreanTermsMenuItem.IsChecked = loaded.UseKoreanResultTerms;
         GraphInterceptsMenuItem.IsChecked = loaded.ShowGraphIntercepts;
         viewModel.SetKoreanResultTerms(loaded.UseKoreanResultTerms);
         viewModel.SetShowGraphIntercepts(loaded.ShowGraphIntercepts);
+        viewModel.SetDecimalPlaces(loaded.DecimalPlaces);
+        UpdateDecimalPlacesMenu();
         ApplyResultHeaders(loaded.UseKoreanResultTerms);
+        SettingsMenuItem.IsEnabled = true;
     }
 
     private void New_Click(object sender, RoutedEventArgs e) { currentPath = null; viewModel.NewDocument(); Title = "새 문서 — K-OPT 2026"; }
@@ -119,16 +144,54 @@ public partial class MainWindow : Window
         var useKorean = KoreanTermsMenuItem.IsChecked;
         viewModel.SetKoreanResultTerms(useKorean);
         ApplyResultHeaders(useKorean);
-        try { await settings.SaveAsync(new(useKorean, viewModel.ShowGraphIntercepts)); }
-        catch (Exception ex) { MessageBox.Show(this, ex.Message, "설정 저장 오류", MessageBoxButton.OK, MessageBoxImage.Warning); }
+        await SaveSettingsAsync();
     }
 
     private async void GraphIntercepts_Click(object sender, RoutedEventArgs e)
     {
         var showIntercepts = GraphInterceptsMenuItem.IsChecked;
         viewModel.SetShowGraphIntercepts(showIntercepts);
-        try { await settings.SaveAsync(new(viewModel.UseKoreanResultTerms, showIntercepts)); }
+        await SaveSettingsAsync();
+    }
+
+    private async void DecimalPlaces_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem { Tag: int digits }) return;
+        viewModel.SetDecimalPlaces(digits);
+        UpdateDecimalPlacesMenu();
+        await SaveSettingsAsync();
+    }
+
+    private void UpdateDecimalPlacesMenu()
+    {
+        DecimalPlacesMenuItem.Header = $"소수 자릿수: {viewModel.DecimalPlaces}자리";
+        foreach (MenuItem item in DecimalPlacesMenuItem.Items)
+            item.IsChecked = (int)item.Tag == viewModel.DecimalPlaces;
+    }
+
+    private Task SaveSettingsAsync()
+    {
+        var snapshot = new UserSettings(viewModel.UseKoreanResultTerms, viewModel.ShowGraphIntercepts, viewModel.DecimalPlaces);
+        pendingSettingsSave = SaveSettingsAfterAsync(pendingSettingsSave, snapshot);
+        return pendingSettingsSave;
+    }
+
+    private async Task SaveSettingsAfterAsync(Task previous, UserSettings snapshot)
+    {
+        await previous;
+        try { await settings.SaveAsync(snapshot); }
         catch (Exception ex) { MessageBox.Show(this, ex.Message, "설정 저장 오류", MessageBoxButton.OK, MessageBoxImage.Warning); }
+    }
+
+    private async void MainWindow_Closing(object? sender, CancelEventArgs e)
+    {
+        if (pendingSettingsSave.IsCompleted) return;
+        e.Cancel = true;
+        if (waitingForSettings) return;
+        waitingForSettings = true;
+        SettingsMenuItem.IsEnabled = false;
+        await pendingSettingsSave;
+        Close();
     }
 
     private void ApplyResultHeaders(bool korean)

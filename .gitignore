@@ -1,9 +1,28 @@
-# Build and test outputs
-[Bb]in/
-[Oo]bj/
-artifacts/
-dist/
-[Tt]est[Rr]esult*/
+# Internal documentation and local agent instructions
+/kanban-board-docs/private/
+**/private/
+/.backup/
+/_x/
+/HSI/
+/AGENTS.md
+/AGENTS_DOCUMENT_TEMPLATES.md
+/attention-kind.md
+/SKILL.md
+/00_프로젝트안내_*.md
+
+# Local repositories, original reference programs and archived outputs
+/kanban-board/repositories/
+/kanban-board/reference/
+**/_x/
+**/artifacts/
+**/[Bb]in/
+**/[Oo]bj/
+**/.vs/
+**/dist/
+**/TestResults/
+**/[Tt]est[Rr]esult*/
+**/Backup/
+UpgradeLog*.htm*
 *.trx
 *.coverage
 *.coveragexml
@@ -11,18 +30,12 @@ coverage*.json
 coverage*.xml
 *.binlog
 
-# Local verification and archived work
-**/_x/
-
-# Visual Studio and user-specific state
-.vs/
+# Visual Studio state, generated binaries and temporary files
 *.rsuser
-*.suo
 *.user
+*.suo
 *.userosscache
 *.sln.docstates
-
-# Generated binaries, logs, caches, and temporary files
 *.dll
 *.exe
 *.pdb
@@ -38,7 +51,7 @@ coverage*.xml
 ~$*
 *~
 
-# Secrets and deployment credentials
+# Local credentials and OS files
 .env
 .env.*
 !.env.example
@@ -48,10 +61,8 @@ coverage*.xml
 *.key
 *.publishsettings
 *.pubxml.user
-
-# OS metadata
-.DS_Store
 Thumbs.db
 ehthumbs.db
 Desktop.ini
 $RECYCLE.BIN/
+.DS_Store

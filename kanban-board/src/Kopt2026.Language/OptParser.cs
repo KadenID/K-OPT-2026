@@ -41,18 +41,45 @@ public sealed partial class OptParser
             return new(null, diagnostics);
         }
 
-        var variables = new Dictionary<string, Variable>(StringComparer.OrdinalIgnoreCase);
-        var objective = ParseExpression(effective[1].Text, effective[1].Line, diagnostics, variables);
-        if (effective.Count < 3 || !effective[2].Text.Equals("ST", StringComparison.OrdinalIgnoreCase))
+        var stIndex = -1;
+        for (var index = 1; index < effective.Count; index++)
         {
-            diagnostics.Add(Error("KOP002", effective.Count >= 3 ? effective[2].Line : effective[1].Line + 1, 1, "ST가 없습니다.", "목적식 다음 줄에 ST를 입력하십시오."));
+            if (effective[index].Text.Equals("END", StringComparison.OrdinalIgnoreCase)) break;
+            if (effective[index].Text.Equals("ST", StringComparison.OrdinalIgnoreCase)) { stIndex = index; break; }
+        }
+        if (stIndex < 0)
+        {
+            diagnostics.Add(Error("KOP002", effective[1].Line, 1, "ST가 없습니다.", "목적식 마지막 줄 다음에 ST를 별도 줄로 입력하십시오."));
             return new(null, diagnostics);
         }
+        if (stIndex == 1)
+        {
+            diagnostics.Add(Error("KOP011", effective[stIndex].Line, 1, "목적식이 없습니다.", "MAX/MIN과 ST 사이에 목적식을 입력하십시오."));
+            return new(null, diagnostics);
+        }
+
+        // Preserve physical lines and indentation so joined-expression diagnostics point to the editor.
+        var objectiveLines = lines.Skip(effective[0].Line)
+            .Take(effective[stIndex].Line - effective[0].Line - 1)
+            .Select(text => text.TrimStart().StartsWith('#') ? "" : text.TrimEnd('\r')).ToArray();
+        var objectiveText = string.Join('\n', objectiveLines);
+        var lineStarts = new int[objectiveLines.Length];
+        for (var index = 1; index < lineStarts.Length; index++)
+            lineStarts[index] = lineStarts[index - 1] + objectiveLines[index - 1].Length + 1;
+        (int Line, int Column) ObjectivePosition(int offset)
+        {
+            var index = Array.BinarySearch(lineStarts, offset);
+            if (index < 0) index = ~index - 1;
+            return (effective[0].Line + index + 1, offset - lineStarts[index] + 1);
+        }
+
+        var variables = new Dictionary<string, Variable>(StringComparer.OrdinalIgnoreCase);
+        var objective = ParseExpression(objectiveText, effective[0].Line + 1, diagnostics, variables, ObjectivePosition);
 
         var constraints = new List<Constraint>();
         var integerNames = new List<(string Name, int Line)>();
         var sawEnd = false;
-        foreach (var item in effective.Skip(3))
+        foreach (var item in effective.Skip(stIndex + 1))
         {
             if (item.Text.Equals("END", StringComparison.OrdinalIgnoreCase)) { sawEnd = true; break; }
             if (item.Text.StartsWith("INTEGER", StringComparison.OrdinalIgnoreCase))
@@ -103,8 +130,19 @@ public sealed partial class OptParser
         return new(new OptimizationModel(sense, objective, variables.Values.ToList(), constraints, source.EncodingName, source.Hash), diagnostics);
     }
 
-    private static LinearExpression? ParseExpression(string text, int line, List<Diagnostic> diagnostics, Dictionary<string, Variable> variables)
+    private static LinearExpression? ParseExpression(string text, int line, List<Diagnostic> diagnostics, Dictionary<string, Variable> variables,
+        Func<int, (int Line, int Column)>? sourcePosition = null)
     {
+        (int Line, int Column) Position(int offset)
+        {
+            while (offset < text.Length && char.IsWhiteSpace(text[offset])) offset++;
+            return sourcePosition is null ? (line, offset + 1) : sourcePosition(offset);
+        }
+        Diagnostic ExpressionError(int offset, string message, string hint)
+        {
+            var position = Position(offset);
+            return Error("KOP011", position.Line, position.Column, message, hint);
+        }
         var coefficients = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
         var constant = 0d;
         var cursor = 0;
@@ -113,12 +151,12 @@ public sealed partial class OptParser
         {
             if (!string.IsNullOrWhiteSpace(text[cursor..match.Index]))
             {
-                diagnostics.Add(Error("KOP011", line, cursor + 1, "선형식의 연산자 또는 항이 올바르지 않습니다.", "항 사이에 + 또는 -를 사용하십시오."));
+                diagnostics.Add(ExpressionError(cursor, "선형식의 연산자 또는 항이 올바르지 않습니다.", "항 사이에 + 또는 -를 사용하십시오."));
                 return null;
             }
             if (!isFirstTerm && match.Groups[1].Length == 0)
             {
-                diagnostics.Add(Error("KOP011", line, match.Index + 1, "선형식의 항 사이에 연산자가 없습니다.", "항 사이에 + 또는 -를 사용하십시오."));
+                diagnostics.Add(ExpressionError(match.Index, "선형식의 항 사이에 연산자가 없습니다.", "항 사이에 + 또는 -를 사용하십시오."));
                 return null;
             }
             cursor = match.Index + match.Length;
@@ -131,7 +169,8 @@ public sealed partial class OptParser
                 if (coefficients.TryGetValue(name, out var prior))
                 {
                     coefficients[name] = prior + sign * coefficient;
-                    diagnostics.Add(new("KOP040", DiagnosticSeverity.Warning, new(line, match.Index + 1, match.Length), $"{name}의 중복 항을 합산했습니다.", "읽기 쉬운 식으로 정리하는 것을 권장합니다."));
+                    var position = Position(match.Groups[3].Index);
+                    diagnostics.Add(new("KOP040", DiagnosticSeverity.Warning, new(position.Line, position.Column, name.Length), $"{name}의 중복 항을 합산했습니다.", "읽기 쉬운 식으로 정리하는 것을 권장합니다."));
                 }
                 else coefficients[name] = sign * coefficient;
                 if (!variables.ContainsKey(name)) variables[name] = new($"col-{variables.Count + 1}", name, VariableType.Continuous);
@@ -141,7 +180,7 @@ public sealed partial class OptParser
         }
         if (!string.IsNullOrWhiteSpace(text[cursor..]) || coefficients.Count == 0)
         {
-            diagnostics.Add(Error("KOP011", line, cursor + 1, "선형식을 해석할 수 없습니다.", "예: 3 X1 + 2 X2"));
+            diagnostics.Add(ExpressionError(cursor, "선형식을 해석할 수 없습니다.", "예: 3 X1 + 2 X2"));
             return null;
         }
         return new(coefficients, constant);

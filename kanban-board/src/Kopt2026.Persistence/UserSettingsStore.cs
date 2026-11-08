@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Kopt2026.Domain;
 
 namespace Kopt2026.Persistence;
 
@@ -6,14 +7,16 @@ public sealed record UserSettings
 {
     public UserSettings() { }
 
-    public UserSettings(bool useKoreanResultTerms, bool showGraphIntercepts = true)
+    public UserSettings(bool useKoreanResultTerms, bool showGraphIntercepts = true, int decimalPlaces = ResultDisplayPrecision.Default)
     {
         UseKoreanResultTerms = useKoreanResultTerms;
         ShowGraphIntercepts = showGraphIntercepts;
+        DecimalPlaces = ResultDisplayPrecision.Normalize(decimalPlaces);
     }
 
     public bool UseKoreanResultTerms { get; init; } = true;
     public bool ShowGraphIntercepts { get; init; } = true;
+    public int DecimalPlaces { get; init; } = ResultDisplayPrecision.Default;
 }
 
 public sealed class UserSettingsStore
@@ -31,7 +34,8 @@ public sealed class UserSettingsStore
         try
         {
             await using var stream = File.OpenRead(path);
-            return await JsonSerializer.DeserializeAsync<UserSettings>(stream, cancellationToken: cancellationToken) ?? new();
+            var loaded = await JsonSerializer.DeserializeAsync<UserSettings>(stream, cancellationToken: cancellationToken) ?? new();
+            return loaded with { DecimalPlaces = ResultDisplayPrecision.Normalize(loaded.DecimalPlaces) };
         }
         catch (JsonException) { return new(); }
         catch (IOException) { return new(); }
@@ -46,7 +50,7 @@ public sealed class UserSettingsStore
         try
         {
             await using (var stream = File.Create(temporary))
-                await JsonSerializer.SerializeAsync(stream, settings, cancellationToken: cancellationToken);
+                await JsonSerializer.SerializeAsync(stream, settings with { DecimalPlaces = ResultDisplayPrecision.Normalize(settings.DecimalPlaces) }, cancellationToken: cancellationToken);
             File.Move(temporary, path, true);
         }
         finally { if (File.Exists(temporary)) File.Delete(temporary); }

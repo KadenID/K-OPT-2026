@@ -26,6 +26,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private CancellationTokenSource? solveCancellation;
     private SolveResult? latestResult;
     private OptimizationModel? latestModel;
+    private long documentRevision;
+    private int decimalPlaces = ResultDisplayPrecision.Default;
 
     public MainViewModel(KoptEngine engine)
     {
@@ -36,7 +38,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         Validate();
     }
 
-    public string EditorText { get => editorText; set { if (Set(ref editorText, value)) { StatusText = "편집됨 · 검증 필요"; LatestResult = null; LatestModel = null; LegacyKoptOutputText = LegacyKoptReportFormatter.EmptyReport; } } }
+    public string EditorText { get => editorText; set { if (Set(ref editorText, value)) { documentRevision++; ResetResults(); StatusText = "편집됨 · 검증 필요"; } } }
     public string StatusText { get => statusText; private set => Set(ref statusText, value); }
     public string EncodingText { get => encodingText; private set => Set(ref encodingText, value); }
     public string OverviewText { get => overviewText; private set => Set(ref overviewText, value); }
@@ -46,6 +48,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public OptimizationModel? LatestModel { get => latestModel; private set => Set(ref latestModel, value); }
     public bool UseKoreanResultTerms { get => useKoreanResultTerms; private set => Set(ref useKoreanResultTerms, value); }
     public bool ShowGraphIntercepts { get => showGraphIntercepts; private set => Set(ref showGraphIntercepts, value); }
+    public int DecimalPlaces => decimalPlaces;
     public string AlternativeSummaryText { get => alternativeSummaryText; private set => Set(ref alternativeSummaryText, value); }
     public string SensitivitySummaryText { get => sensitivitySummaryText; private set => Set(ref sensitivitySummaryText, value); }
     public string LegacyKoptOutputText { get => legacyKoptOutputText; private set => Set(ref legacyKoptOutputText, value); }
@@ -67,9 +70,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
         editorText = document.Text;
         OnPropertyChanged(nameof(EditorText));
         EncodingText = document.EncodingName;
-        LatestResult = null;
-        LatestModel = null;
-        LegacyKoptOutputText = LegacyKoptReportFormatter.EmptyReport;
+        documentRevision++;
+        ResetResults();
         Validate();
     }
 
@@ -82,6 +84,20 @@ public sealed class MainViewModel : INotifyPropertyChanged
     }
 
     public void SetShowGraphIntercepts(bool value) => ShowGraphIntercepts = value;
+
+    public void SetDecimalPlaces(int value)
+    {
+        if (!Set(ref decimalPlaces, ResultDisplayPrecision.Normalize(value), nameof(DecimalPlaces)) || LatestResult is null) return;
+        ObjectiveText = DisplayNumber(LatestResult.ObjectiveValue);
+        LegacyKoptOutputText = LegacyKoptReportFormatter.Format(LatestResult, DecimalPlaces);
+        RefreshAlternativeOptima();
+        if (LatestResult.Mip is not null)
+            for (var index = 0; index < Logs.Count; index++)
+                if (Logs[index].StartsWith("MIP gap: ", StringComparison.Ordinal)) Logs[index] = MipLogText(LatestResult.Mip);
+    }
+
+    private string DisplayNumber(double? value) => ResultNumberFormatter.Format(value, DecimalPlaces);
+    private string MipLogText(MipInfo mip) => $"MIP gap: {DisplayNumber(mip.RelativeGap)} · 노드: {(mip.NodeCount is long nodes ? ResultNumberFormatter.Format(nodes) : "-")}";
 
     private void Validate()
     {
@@ -100,12 +116,18 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     private async Task RunAsync()
     {
+        if (IsRunning) return;
+        var runRevision = documentRevision;
+        var source = SourceDocument.FromText(EditorText, EncodingText);
+        ResetResults();
         IsRunning = true;
         StatusText = "해석 중…";
         solveCancellation = new CancellationTokenSource();
         try
         {
-            var run = await engine.RunAsync(SourceDocument.FromText(EditorText, EncodingText), new SolveOptions(), solveCancellation.Token);
+            var run = await engine.RunAsync(source, new SolveOptions(), solveCancellation.Token);
+            // Editing or loading a document invalidates every outcome of the previous run.
+            if (runRevision != documentRevision) return;
             ShowDiagnostics(run.Parse);
             if (run.Solve is null)
             {
@@ -115,9 +137,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
             }
             LatestResult = run.Solve;
             LatestModel = run.Parse.Model;
-            LegacyKoptOutputText = LegacyKoptReportFormatter.Format(run.Solve);
+            LegacyKoptOutputText = LegacyKoptReportFormatter.Format(run.Solve, DecimalPlaces);
             RefreshResultRows();
-            ObjectiveText = ResultNumberFormatter.Format(run.Solve.ObjectiveValue);
+            ObjectiveText = DisplayNumber(run.Solve.ObjectiveValue);
             OverviewText = $"{run.Solve.Status} · 변수 {Variables.Count}개 · 제약식 {Constraints.Count}개 · {ShortAlternativeSummary(run.Solve.AlternativeOptima)}";
             Logs.Clear();
             Logs.Add($"상태: {run.Solve.Status}");
@@ -125,17 +147,28 @@ public sealed class MainViewModel : INotifyPropertyChanged
             Logs.Add($"모델 SHA-256: {run.Solve.ModelHash}");
             Logs.Add($"파싱: {run.ParseTime.TotalMilliseconds:F2} ms · 해석: {run.Solve.SolveTime.TotalMilliseconds:F2} ms");
             if (run.Solve.Mip is not null)
-                Logs.Add($"MIP gap: {ResultNumberFormatter.Format(run.Solve.Mip.RelativeGap)} · 노드: {(run.Solve.Mip.NodeCount is long nodes ? ResultNumberFormatter.Format(nodes) : "-")}");
+                Logs.Add(MipLogText(run.Solve.Mip));
             if (run.Solve.AlternativeOptima is { } alternatives)
                 Logs.Add($"복수 최적해: {AlternativeLogText(alternatives)} · 분석 {alternatives.AnalysisTime.TotalMilliseconds:F2} ms");
             StatusText = $"{KoreanStatus(run.Solve.Status)} · {ShortAlternativeSummary(run.Solve.AlternativeOptima)} · {run.TotalTime.TotalMilliseconds:F2} ms";
         }
-        catch (OperationCanceledException) { LegacyKoptOutputText = "사용자가 해석을 취소했습니다."; StatusText = "사용자가 해석을 취소했습니다."; }
-        catch (Exception ex) { LegacyKoptOutputText = "해석 오류가 발생했습니다. 로그 탭을 확인하십시오."; StatusText = "해석 오류"; Logs.Add($"오류 ID: {Guid.NewGuid():N}"); Logs.Add(ex.Message); }
+        catch (OperationCanceledException) { if (runRevision == documentRevision) { LegacyKoptOutputText = "사용자가 해석을 취소했습니다."; StatusText = "사용자가 해석을 취소했습니다."; } }
+        catch (Exception ex) { if (runRevision == documentRevision) { LegacyKoptOutputText = "해석 오류가 발생했습니다. 로그 탭을 확인하십시오."; StatusText = "해석 오류"; Logs.Add($"오류 ID: {Guid.NewGuid():N}"); Logs.Add(ex.Message); } }
         finally { solveCancellation?.Dispose(); solveCancellation = null; IsRunning = false; }
     }
 
     private void Cancel() { StatusText = "취소 요청 중…"; solveCancellation?.Cancel(); }
+    private void ResetResults()
+    {
+        LatestResult = null;
+        LatestModel = null;
+        RefreshResultRows();
+        Logs.Clear();
+        Diagnostics.Clear();
+        ObjectiveText = "-";
+        OverviewText = "검증 필요";
+        LegacyKoptOutputText = LegacyKoptReportFormatter.EmptyReport;
+    }
     private void RefreshResultRows()
     {
         Variables.Clear();
@@ -173,7 +206,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             OptimalRanges.Add(new(range.Name, range.Minimum, range.Maximum, RangeText(range.Minimum, range.Maximum)));
         foreach (var solution in alternatives.RepresentativeSolutions)
             AlternativeSolutions.Add(new(solution.Number,
-                string.Join(", ", solution.Variables.Select(value => $"{value.Name}={ResultNumberFormatter.Format(value.Value)}"))));
+                string.Join(", ", solution.Variables.Select(value => $"{value.Name}={DisplayNumber(value.Value)}"))));
     }
     private void RefreshSensitivity()
     {
@@ -195,11 +228,11 @@ public sealed class MainViewModel : INotifyPropertyChanged
         foreach (var range in sensitivity.RightHandSides)
             RightHandSideSensitivity.Add(new(range.Name, range.CurrentValue, range.LowerValue, range.UpperValue));
     }
-    private static string RangeText(double? minimum, double? maximum)
+    private string RangeText(double? minimum, double? maximum)
     {
         if (minimum is null || maximum is null) return "미확인";
         if (NearlyEqual(minimum.Value, maximum.Value)) return "고정";
-        return $"{ResultNumberFormatter.Format(minimum)} ~ {ResultNumberFormatter.Format(maximum)}";
+        return $"{DisplayNumber(minimum)} ~ {DisplayNumber(maximum)}";
     }
     private static bool NearlyEqual(double left, double right) =>
         Math.Abs(left - right) <= 1e-7 * Math.Max(1, Math.Max(Math.Abs(left), Math.Abs(right)));

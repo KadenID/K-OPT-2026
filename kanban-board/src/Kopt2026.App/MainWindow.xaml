@@ -6,7 +6,11 @@
         WindowStartupLocation="CenterScreen">
     <Window.Resources>
         <SolidColorBrush x:Key="AccentBrush" Color="#2563EB" />
-        <local:ResultNumberConverter x:Key="ResultNumberConverter" />
+        <Style x:Key="WrappedResultText" TargetType="TextBlock">
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="2" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+        </Style>
     </Window.Resources>
     <Window.InputBindings>
         <KeyBinding Key="F5" Command="{Binding RunCommand}" />
@@ -30,9 +34,12 @@
                 <MenuItem Header="최적화 실행" Command="{Binding RunCommand}" InputGestureText="F5" />
                 <MenuItem Header="실행 취소" Command="{Binding CancelCommand}" InputGestureText="Shift+F5" />
             </MenuItem>
-            <MenuItem Header="_설정">
+            <MenuItem x:Name="SettingsMenuItem" Header="_설정" IsEnabled="False">
                 <MenuItem x:Name="KoreanTermsMenuItem" Header="결과 표 항목을 한글로 표시" IsCheckable="True" IsChecked="True" Click="KoreanTerms_Click" />
                 <MenuItem x:Name="GraphInterceptsMenuItem" Header="그래프에 X·Y절편 표시" IsCheckable="True" IsChecked="True" Click="GraphIntercepts_Click" />
+                <Separator />
+                <MenuItem x:Name="DecimalPlacesMenuItem" Header="소수 자릿수: 6자리"
+                          ToolTip="지정한 소수 자릿수에서 표시만 반올림합니다. 계산값의 정밀도는 유지됩니다." />
             </MenuItem>
             <MenuItem Header="_도움말"><MenuItem Header="K-OPT 2026 정보" Click="About_Click" /></MenuItem>
         </Menu>
@@ -149,8 +156,8 @@
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="이름" Binding="{Binding Name}" Width="*" />
                             <DataGridTextColumn Header="변수 유형" Binding="{Binding Type}" Width="*" />
-                            <DataGridTextColumn Header="최적값" Binding="{Binding Value, Converter={StaticResource ResultNumberConverter}}" Width="*" />
-                            <DataGridTextColumn Header="수정비용" Binding="{Binding ReducedCost, Converter={StaticResource ResultNumberConverter}}" Width="*" />
+                            <DataGridTextColumn Header="최적값" Binding="{local:ResultNumberBinding Value}" Width="*" />
+                            <DataGridTextColumn Header="수정비용" Binding="{local:ResultNumberBinding ReducedCost}" Width="*" />
                         </DataGrid.Columns>
                     </DataGrid>
                 </TabItem>
@@ -159,10 +166,10 @@
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="이름" Binding="{Binding Name}" Width="*" />
                             <DataGridTextColumn Header="관계식" Binding="{Binding Relation}" Width="*" />
-                            <DataGridTextColumn Header="좌변 계산값" Binding="{Binding Activity, Converter={StaticResource ResultNumberConverter}}" Width="*" />
-                            <DataGridTextColumn Header="우변" Binding="{Binding RightHandSide, Converter={StaticResource ResultNumberConverter}}" Width="*" />
-                            <DataGridTextColumn Header="여유·잉여" Binding="{Binding Slack, Converter={StaticResource ResultNumberConverter}}" Width="*" />
-                            <DataGridTextColumn Header="쌍대값(잠재가격)" Binding="{Binding Dual, Converter={StaticResource ResultNumberConverter}}" Width="*" />
+                            <DataGridTextColumn Header="좌변 계산값" Binding="{local:ResultNumberBinding Activity}" Width="*" />
+                            <DataGridTextColumn Header="우변" Binding="{local:ResultNumberBinding RightHandSide}" Width="*" />
+                            <DataGridTextColumn Header="여유·잉여" Binding="{local:ResultNumberBinding Slack}" Width="*" />
+                            <DataGridTextColumn Header="쌍대값(잠재가격)" Binding="{local:ResultNumberBinding Dual}" Width="*" />
                         </DataGrid.Columns>
                     </DataGrid>
                 </TabItem>
@@ -177,9 +184,9 @@
                             <DataGrid x:Name="ObjectiveSensitivityGrid" ItemsSource="{Binding ObjectiveSensitivity}" AutoGenerateColumns="False" IsReadOnly="True" AutomationProperties.Name="목적식 계수 민감도 범위">
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="변수" Binding="{Binding Name}" Width="*" />
-                                    <DataGridTextColumn Header="현재계수" Binding="{Binding CurrentValue, Converter={StaticResource ResultNumberConverter}}" Width="*" />
-                                    <DataGridTextColumn Header="하한" Binding="{Binding LowerValue, Converter={StaticResource ResultNumberConverter}}" Width="*" />
-                                    <DataGridTextColumn Header="상한" Binding="{Binding UpperValue, Converter={StaticResource ResultNumberConverter}}" Width="*" />
+                                    <DataGridTextColumn Header="현재계수" Binding="{local:ResultNumberBinding CurrentValue}" Width="*" />
+                                    <DataGridTextColumn Header="하한" Binding="{local:ResultNumberBinding LowerValue}" Width="*" />
+                                    <DataGridTextColumn Header="상한" Binding="{local:ResultNumberBinding UpperValue}" Width="*" />
                                 </DataGrid.Columns>
                             </DataGrid>
                         </GroupBox>
@@ -187,19 +194,20 @@
                             <DataGrid x:Name="RightHandSideSensitivityGrid" ItemsSource="{Binding RightHandSideSensitivity}" AutoGenerateColumns="False" IsReadOnly="True" AutomationProperties.Name="제약식 우변 민감도 범위">
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="제약식" Binding="{Binding Name}" Width="*" />
-                                    <DataGridTextColumn Header="현재우변" Binding="{Binding CurrentValue, Converter={StaticResource ResultNumberConverter}}" Width="*" />
-                                    <DataGridTextColumn Header="하한" Binding="{Binding LowerValue, Converter={StaticResource ResultNumberConverter}}" Width="*" />
-                                    <DataGridTextColumn Header="상한" Binding="{Binding UpperValue, Converter={StaticResource ResultNumberConverter}}" Width="*" />
+                                    <DataGridTextColumn Header="현재우변" Binding="{local:ResultNumberBinding CurrentValue}" Width="*" />
+                                    <DataGridTextColumn Header="하한" Binding="{local:ResultNumberBinding LowerValue}" Width="*" />
+                                    <DataGridTextColumn Header="상한" Binding="{local:ResultNumberBinding UpperValue}" Width="*" />
                                 </DataGrid.Columns>
                             </DataGrid>
                         </GroupBox>
                     </Grid>
                 </TabItem>
-                <TabItem Header="그래프">
-                    <Grid Background="White">
-                        <local:SolutionGraph Model="{Binding LatestModel}" Result="{Binding LatestResult}" UseKoreanTerms="{Binding UseKoreanResultTerms}" ShowIntercepts="{Binding ShowGraphIntercepts}"
+                <TabItem x:Name="GraphTab" Header="그래프">
+                    <ScrollViewer x:Name="GraphScrollViewer" Background="White" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
+                                  HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" CanContentScroll="False" Focusable="True">
+                        <local:SolutionGraph Model="{Binding LatestModel}" Result="{Binding LatestResult}" UseKoreanTerms="{Binding UseKoreanResultTerms}" ShowIntercepts="{Binding ShowGraphIntercepts}" DecimalPlaces="{Binding DecimalPlaces}"
                                              MinHeight="210" AutomationProperties.Name="최적화 결과 그래프" />
-                    </Grid>
+                    </ScrollViewer>
                 </TabItem>
                 <TabItem x:Name="AlternativeOptimaTab" Header="복수 최적해">
                     <Grid Margin="10">
@@ -208,18 +216,21 @@
                         <Border Grid.ColumnSpan="3" Background="#FFFBEB" BorderBrush="#FDE68A" BorderThickness="1" CornerRadius="4" Padding="10" Margin="0,0,0,8">
                             <TextBlock Text="{Binding AlternativeSummaryText}" Foreground="#92400E" FontWeight="SemiBold" TextWrapping="Wrap" />
                         </Border>
-                        <DataGrid x:Name="OptimalRangesGrid" Grid.Row="1" Grid.Column="0" ItemsSource="{Binding OptimalRanges}" AutoGenerateColumns="False" IsReadOnly="True" AutomationProperties.Name="최적해 변수 범위">
+                        <DataGrid x:Name="OptimalRangesGrid" Grid.Row="1" Grid.Column="0" ItemsSource="{Binding OptimalRanges}" AutoGenerateColumns="False" IsReadOnly="True" MinColumnWidth="90"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.CanContentScroll="False" AutomationProperties.Name="최적해 변수 범위">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="변수" Binding="{Binding Name}" Width="*" />
-                                <DataGridTextColumn Header="최소" Binding="{Binding Minimum, Converter={StaticResource ResultNumberConverter}}" Width="*" />
-                                <DataGridTextColumn Header="최대" Binding="{Binding Maximum, Converter={StaticResource ResultNumberConverter}}" Width="*" />
-                                <DataGridTextColumn Header="최적 범위" Binding="{Binding Range}" Width="2*" />
+                                <DataGridTextColumn Header="변수" Binding="{Binding Name}" Width="*" ElementStyle="{StaticResource WrappedResultText}" />
+                                <DataGridTextColumn Header="최소" Binding="{local:ResultNumberBinding Minimum}" Width="*" ElementStyle="{StaticResource WrappedResultText}" />
+                                <DataGridTextColumn Header="최대" Binding="{local:ResultNumberBinding Maximum}" Width="*" ElementStyle="{StaticResource WrappedResultText}" />
+                                <DataGridTextColumn Header="최적 범위" Binding="{Binding Range}" Width="2*" ElementStyle="{StaticResource WrappedResultText}" />
                             </DataGrid.Columns>
                         </DataGrid>
-                        <DataGrid x:Name="AlternativeSolutionsGrid" Grid.Row="1" Grid.Column="2" ItemsSource="{Binding AlternativeSolutions}" AutoGenerateColumns="False" IsReadOnly="True" AutomationProperties.Name="대표 최적해 목록">
+                        <DataGrid x:Name="AlternativeSolutionsGrid" Grid.Row="1" Grid.Column="2" ItemsSource="{Binding AlternativeSolutions}" AutoGenerateColumns="False" IsReadOnly="True"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.CanContentScroll="False"
+                                  AutomationProperties.Name="대표 최적해 목록">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="#" Binding="{Binding Number}" Width="55" />
-                                <DataGridTextColumn Header="대표 최적해 변수값" Binding="{Binding Values}" Width="*" />
+                                <DataGridTextColumn Header="대표 최적해 변수값" Binding="{Binding Values}" Width="*" MinWidth="160" ElementStyle="{StaticResource WrappedResultText}" />
                             </DataGrid.Columns>
                         </DataGrid>
                     </Grid>
