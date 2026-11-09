@@ -1,4 +1,4 @@
-using System.Windows;
+using Avalonia;
 
 namespace Kopt2026.App;
 
@@ -19,9 +19,9 @@ public static class GraphLabelLayout
 
         foreach (var candidate in Candidates(labelSize, anchor, bounds, axis, clearance))
         {
-            var collisionProbe = candidate;
-            collisionProbe.Inflate(clearance, clearance);
-            if (occupiedAreas.Any(area => area.IntersectsWith(collisionProbe))) continue;
+            var collisionProbe = candidate.Inflate(clearance);
+
+            if (occupiedAreas.Any(area => area.Intersects(collisionProbe))) continue;
             occupiedAreas.Add(candidate);
             return candidate;
         }

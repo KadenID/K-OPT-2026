@@ -1,0 +1,44 @@
+name: Common desktop checks
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-2025
+            rid: win-x64
+          - runner: macos-15
+            rid: osx-arm64
+          - runner: macos-15-intel
+            rid: osx-x64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    env:
+      KOPT_UI_SCREENSHOT: ${{ github.workspace }}/kanban-board/artifacts/common-app-check/workspace.png
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Restore common solution
+        run: dotnet restore kanban-board/Kopt2026.slnx --locked-mode
+      - name: Build common solution
+        run: dotnet build kanban-board/Kopt2026.slnx -c Release --no-restore
+      - name: Test common application
+        run: dotnet test kanban-board/Kopt2026.slnx -c Release --no-build --no-restore
+      - name: Package and test native calculation
+        shell: pwsh
+        run: ./kanban-board/tools/Publish-Release.ps1 -RuntimeIdentifier ${{ matrix.rid }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: common-desktop-${{ matrix.rid }}
+          path: |
+            kanban-board/dist/releases/*.zip
+            kanban-board/dist/releases/*.tar.gz
+            kanban-board/dist/releases/*.sha256
+            kanban-board/artifacts/common-app-check/*.png
+          if-no-files-found: error

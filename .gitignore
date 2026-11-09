@@ -18,7 +18,9 @@
 **/[Bb]in/
 **/[Oo]bj/
 **/.vs/
+# Release packages and publish output
 **/dist/
+**/publish/
 **/TestResults/
 **/[Tt]est[Rr]esult*/
 **/Backup/

@@ -1,34 +1,29 @@
 using System.Globalization;
-using System.Windows;
-using System.Windows.Media;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Media;
 using Kopt2026.Application;
 using Kopt2026.Domain;
 using Kopt2026.Solver.Abstractions;
-
 namespace Kopt2026.App;
-
-public sealed class SolutionGraph : FrameworkElement
+public sealed class SolutionGraph : Control
 {
-    public static readonly DependencyProperty ModelProperty = DependencyProperty.Register(
-        nameof(Model), typeof(OptimizationModel), typeof(SolutionGraph), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender | FrameworkPropertyMetadataOptions.AffectsMeasure));
-    public static readonly DependencyProperty ResultProperty = DependencyProperty.Register(
-        nameof(Result), typeof(SolveResult), typeof(SolutionGraph), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender | FrameworkPropertyMetadataOptions.AffectsMeasure));
-    public static readonly DependencyProperty UseKoreanTermsProperty = DependencyProperty.Register(
-        nameof(UseKoreanTerms), typeof(bool), typeof(SolutionGraph), new FrameworkPropertyMetadata(true, FrameworkPropertyMetadataOptions.AffectsRender | FrameworkPropertyMetadataOptions.AffectsMeasure));
-    public static readonly DependencyProperty ShowInterceptsProperty = DependencyProperty.Register(
-        nameof(ShowIntercepts), typeof(bool), typeof(SolutionGraph), new FrameworkPropertyMetadata(true, FrameworkPropertyMetadataOptions.AffectsRender));
-    public static readonly DependencyProperty DecimalPlacesProperty = DependencyProperty.Register(
-        nameof(DecimalPlaces), typeof(int), typeof(SolutionGraph),
-        new FrameworkPropertyMetadata(ResultDisplayPrecision.Default,
-            FrameworkPropertyMetadataOptions.AffectsRender | FrameworkPropertyMetadataOptions.AffectsMeasure,
-            null, (_, value) => ResultDisplayPrecision.Normalize((int)value)));
-
-    public OptimizationModel? Model { get => (OptimizationModel?)GetValue(ModelProperty); set => SetValue(ModelProperty, value); }
-    public SolveResult? Result { get => (SolveResult?)GetValue(ResultProperty); set => SetValue(ResultProperty, value); }
-    public bool UseKoreanTerms { get => (bool)GetValue(UseKoreanTermsProperty); set => SetValue(UseKoreanTermsProperty, value); }
-    public bool ShowIntercepts { get => (bool)GetValue(ShowInterceptsProperty); set => SetValue(ShowInterceptsProperty, value); }
-    public int DecimalPlaces { get => (int)GetValue(DecimalPlacesProperty); set => SetValue(DecimalPlacesProperty, value); }
-
+    public static readonly StyledProperty<OptimizationModel?> ModelProperty = AvaloniaProperty.Register<SolutionGraph, OptimizationModel?>(nameof(Model));
+    public static readonly StyledProperty<SolveResult?> ResultProperty = AvaloniaProperty.Register<SolutionGraph, SolveResult?>(nameof(Result));
+    public static readonly StyledProperty<bool> UseKoreanTermsProperty = AvaloniaProperty.Register<SolutionGraph, bool>(nameof(UseKoreanTerms), true);
+    public static readonly StyledProperty<bool> ShowInterceptsProperty = AvaloniaProperty.Register<SolutionGraph, bool>(nameof(ShowIntercepts), true);
+    public static readonly StyledProperty<int> DecimalPlacesProperty = AvaloniaProperty.Register<SolutionGraph, int>(nameof(DecimalPlaces), ResultDisplayPrecision.Default,
+        coerce: (_, value) => ResultDisplayPrecision.Normalize(value));
+    static SolutionGraph()
+    {
+        AffectsRender<SolutionGraph>(ModelProperty, ResultProperty, UseKoreanTermsProperty, ShowInterceptsProperty, DecimalPlacesProperty);
+        AffectsMeasure<SolutionGraph>(ModelProperty, ResultProperty, UseKoreanTermsProperty, ShowInterceptsProperty, DecimalPlacesProperty);
+    }
+    public OptimizationModel? Model { get => GetValue(ModelProperty); set => SetValue(ModelProperty, value); }
+    public SolveResult? Result { get => GetValue(ResultProperty); set => SetValue(ResultProperty, value); }
+    public bool UseKoreanTerms { get => GetValue(UseKoreanTermsProperty); set => SetValue(UseKoreanTermsProperty, value); }
+    public bool ShowIntercepts { get => GetValue(ShowInterceptsProperty); set => SetValue(ShowInterceptsProperty, value); }
+    public int DecimalPlaces { get => GetValue(DecimalPlacesProperty); set => SetValue(DecimalPlacesProperty, value); }
     private string DisplayNumber(double? value) => ResultNumberFormatter.Format(value, DecimalPlaces);
 
     private const double BarRowHeight = 32;
@@ -54,16 +49,16 @@ public sealed class SolutionGraph : FrameworkElement
         var valueWidth = 40d;
         foreach (var variable in result.Variables)
         {
-            nameWidth = Math.Max(nameWidth, Format(variable.Name, Brushes.Black, 12, FontWeights.Normal).WidthIncludingTrailingWhitespace);
-            valueWidth = Math.Max(valueWidth, Format(DisplayNumber(variable.Value), Brushes.Black, 12, FontWeights.Normal).WidthIncludingTrailingWhitespace);
+            nameWidth = Math.Max(nameWidth, Format(variable.Name, Brushes.Black, 12, FontWeight.Normal).WidthIncludingTrailingWhitespace);
+            valueWidth = Math.Max(valueWidth, Format(DisplayNumber(variable.Value), Brushes.Black, 12, FontWeight.Normal).WidthIncludingTrailingWhitespace);
         }
         return (nameWidth, valueWidth);
     }
 
-    protected override void OnRender(DrawingContext dc)
+    public override void Render(DrawingContext dc)
     {
-        base.OnRender(dc);
-        dc.DrawRectangle(Brushes.White, null, new Rect(RenderSize));
+        base.Render(dc);
+        dc.DrawRectangle(Brushes.White, null, new Rect(Bounds.Size));
         if (Model is null || Result is null || Result.Status is not (SolveStatus.Optimal or SolveStatus.Feasible or SolveStatus.TimeLimit))
         {
             DrawCentered(dc, UseKoreanTerms ? "모델을 실행하면 그래프가 표시됩니다." : "Run the model to display a graph.", Brushes.SlateGray, 15);
@@ -75,8 +70,8 @@ public sealed class SolutionGraph : FrameworkElement
 
     private void DrawFeasibleRegion(DrawingContext dc, OptimizationModel model, SolveResult result)
     {
-        var summaryWidth = ShowIntercepts ? Math.Clamp(ActualWidth * 0.25, 230, 310) : 0;
-        var plot = new Rect(65, 28, Math.Max(100, ActualWidth - summaryWidth - 105), Math.Max(100, ActualHeight - 92));
+        var summaryWidth = ShowIntercepts ? Math.Clamp(Bounds.Width * 0.25, 230, 310) : 0;
+        var plot = new Rect(65, 28, Math.Max(100, Bounds.Width - summaryWidth - 105), Math.Max(100, Bounds.Height - 92));
         var xName = model.Variables[0].Name;
         var yName = model.Variables[1].Name;
         var xValue = result.Variables.First(v => v.Name.Equals(xName, StringComparison.OrdinalIgnoreCase)).Value;
@@ -92,10 +87,11 @@ public sealed class SolutionGraph : FrameworkElement
             var geometry = new StreamGeometry();
             using (var context = geometry.Open())
             {
-                context.BeginFigure(Map(region[0]), true, true);
-                context.PolyLineTo(region.Skip(1).Select(Map).ToList(), true, true);
+                context.BeginFigure(Map(region[0]), true);
+                foreach (var point in region.Skip(1)) context.LineTo(Map(point));
+                context.EndFigure(true);
             }
-            geometry.Freeze();
+
             dc.DrawGeometry(new SolidColorBrush(Color.FromArgb(90, 37, 99, 235)), new Pen(new SolidColorBrush(Color.FromRgb(37, 99, 235)), 1.5), geometry);
         }
 
@@ -116,7 +112,7 @@ public sealed class SolutionGraph : FrameworkElement
             var objectivePoints = BoundaryPoints(cx, cy, objective - model.Objective.Constant, maxX, maxY);
             if (objectivePoints.Count == 2)
             {
-                var objectivePen = new Pen(new SolidColorBrush(Color.FromRgb(245, 158, 11)), 2) { DashStyle = DashStyles.Dash };
+                var objectivePen = new Pen(new SolidColorBrush(Color.FromRgb(245, 158, 11)), 2) { DashStyle = DashStyle.Dash };
                 dc.DrawLine(objectivePen, Map(objectivePoints[0]), Map(objectivePoints[1]));
             }
         }
@@ -124,7 +120,7 @@ public sealed class SolutionGraph : FrameworkElement
         if (ShowIntercepts)
         {
             var reservedOptimum = Map(new PlotPoint(xValue, yValue));
-            var optimumLabel = Format($"({DisplayNumber(xValue)}, {DisplayNumber(yValue)})", Brushes.Black, 12, FontWeights.Normal);
+            var optimumLabel = Format($"({DisplayNumber(xValue)}, {DisplayNumber(yValue)})", Brushes.Black, 12, FontWeight.Normal);
             var occupiedAreas = new List<Rect>
             {
                 new(reservedOptimum.X - 8, reservedOptimum.Y - 8, 16, 16),
@@ -146,19 +142,19 @@ public sealed class SolutionGraph : FrameworkElement
     private void DrawVariableBars(DrawingContext dc, SolveResult result)
     {
         var title = UseKoreanTerms ? "변수 최적값" : "Variable solution values";
-        DrawText(dc, title, 24, 18, Brushes.Black, 16, FontWeights.SemiBold);
+        DrawText(dc, title, 24, 18, Brushes.Black, 16, FontWeight.SemiBold);
         if (result.Variables.Count == 0) return;
         var maxValue = Math.Max(1, result.Variables.Max(v => Math.Abs(v.Value)));
         var (nameWidth, valueWidth) = BarTextWidths(result);
         var barLeft = 24 + nameWidth + 16;
-        var availableWidth = Math.Max(100, ActualWidth - barLeft - valueWidth - 48);
+        var availableWidth = Math.Max(100, Bounds.Width - barLeft - valueWidth - 48);
         for (var i = 0; i < result.Variables.Count; i++)
         {
             var variable = result.Variables[i];
             var y = 58 + i * BarRowHeight;
             DrawText(dc, variable.Name, 24, y, Brushes.Black, 12);
             var width = Math.Abs(variable.Value) / maxValue * availableWidth;
-            dc.DrawRoundedRectangle(new SolidColorBrush(Color.FromRgb(37, 99, 235)), null, new Rect(barLeft, y - 2, width, 20), 3, 3);
+            dc.DrawRectangle(new SolidColorBrush(Color.FromRgb(37, 99, 235)), null, new Rect(barLeft, y - 2, width, 20), 3, 3);
             DrawText(dc, DisplayNumber(variable.Value), barLeft + width + 10, y, Brushes.Black, 12);
         }
     }
@@ -178,8 +174,8 @@ public sealed class SolutionGraph : FrameworkElement
         var axisPen = new Pen(new SolidColorBrush(Color.FromRgb(51, 65, 85)), 1.5);
         dc.DrawLine(axisPen, new(plot.Left, plot.Bottom), new(plot.Right, plot.Bottom));
         dc.DrawLine(axisPen, new(plot.Left, plot.Bottom), new(plot.Left, plot.Top));
-        DrawText(dc, xName, plot.Right - 18, plot.Bottom + 27, Brushes.Black, 12, FontWeights.SemiBold);
-        DrawText(dc, yName, plot.Left - 38, plot.Top - 3, Brushes.Black, 12, FontWeights.SemiBold);
+        DrawText(dc, xName, plot.Right - 18, plot.Bottom + 27, Brushes.Black, 12, FontWeight.SemiBold);
+        DrawText(dc, yName, plot.Left - 42, plot.Top - 27, Brushes.Black, 12, FontWeight.SemiBold);
     }
 
     private void DrawLegend(DrawingContext dc, Rect plot, int constraintCount)
@@ -250,7 +246,7 @@ public sealed class SolutionGraph : FrameworkElement
 
         foreach (var marker in markers)
         {
-            var formatted = Format(marker.Label, marker.Brush, 10, FontWeights.SemiBold);
+            var formatted = Format(marker.Label, marker.Brush, 10, FontWeight.SemiBold);
             var size = new Size(formatted.Width + 4, formatted.Height + 2);
             var box = GraphLabelLayout.Place(size, marker.Point, plot, marker.Axis, occupiedAreas);
             if (box is null) continue;
@@ -267,8 +263,8 @@ public sealed class SolutionGraph : FrameworkElement
         IReadOnlyList<GraphLineIntercepts> intercepts,
         IReadOnlyList<Color> colors)
     {
-        dc.DrawRoundedRectangle(new SolidColorBrush(Color.FromArgb(238, 248, 250, 252)), new Pen(new SolidColorBrush(Color.FromRgb(203, 213, 225)), 1), panel, 5, 5);
-        DrawText(dc, UseKoreanTerms ? "X·Y절편" : "X/Y intercepts", panel.Left + 12, panel.Top + 10, Brushes.Black, 13, FontWeights.SemiBold);
+        dc.DrawRectangle(new SolidColorBrush(Color.FromArgb(238, 248, 250, 252)), new Pen(new SolidColorBrush(Color.FromRgb(203, 213, 225)), 1), panel, 5, 5);
+        DrawText(dc, UseKoreanTerms ? "X·Y절편" : "X/Y intercepts", panel.Left + 12, panel.Top + 10, Brushes.Black, 13, FontWeight.SemiBold);
         var rowHeight = Math.Max(16, Math.Min(28, (panel.Height - 42) / Math.Max(1, intercepts.Count)));
         for (var i = 0; i < intercepts.Count; i++)
         {
@@ -276,7 +272,7 @@ public sealed class SolutionGraph : FrameworkElement
             var y = panel.Top + 39 + i * rowHeight;
             if (y + 14 > panel.Bottom) break;
             var color = LineColor(item, intercepts, colors);
-            dc.DrawRoundedRectangle(new SolidColorBrush(color), null, new Rect(panel.Left + 12, y + 2, 9, 9), 2, 2);
+            dc.DrawRectangle(new SolidColorBrush(color), null, new Rect(panel.Left + 12, y + 2, 9, 9), 2, 2);
             var xText = item.XIntercept is double x ? $"({DisplayNumber(x)}, 0)" : (UseKoreanTerms ? "없음" : "none");
             var yText = item.YIntercept is double yValue ? $"(0, {DisplayNumber(yValue)})" : (UseKoreanTerms ? "없음" : "none");
             var name = item.IsObjective ? (UseKoreanTerms ? "목적식" : "Objective") : ShortName(item, 12);
@@ -285,16 +281,16 @@ public sealed class SolutionGraph : FrameworkElement
         }
     }
 
-    private static void DrawLeaderLine(DrawingContext dc, Point anchor, Rect box, Brush brush)
+    private static void DrawLeaderLine(DrawingContext dc, Point anchor, Rect box, IBrush brush)
     {
         var target = new Point(Math.Clamp(anchor.X, box.Left, box.Right), Math.Clamp(anchor.Y, box.Top, box.Bottom));
-        if ((target - anchor).Length <= 5) return;
+        if (new Vector(target.X - anchor.X, target.Y - anchor.Y).Length <= 5) return;
         dc.DrawLine(new Pen(brush, 0.75), anchor, target);
     }
 
     private static void DrawLabelBox(DrawingContext dc, FormattedText formatted, Rect box)
     {
-        dc.DrawRoundedRectangle(new SolidColorBrush(Color.FromArgb(218, 255, 255, 255)), null,
+        dc.DrawRectangle(new SolidColorBrush(Color.FromArgb(218, 255, 255, 255)), null,
             box, 2, 2);
         dc.DrawText(formatted, new Point(box.Left + 2, box.Top + 1));
     }
@@ -332,17 +328,17 @@ public sealed class SolutionGraph : FrameworkElement
         }
     }
 
-    private void DrawCentered(DrawingContext dc, string text, Brush brush, double size)
+    private void DrawCentered(DrawingContext dc, string text, IBrush brush, double size)
     {
-        var formatted = Format(text, brush, size, FontWeights.Normal);
-        dc.DrawText(formatted, new Point((ActualWidth - formatted.Width) / 2, (ActualHeight - formatted.Height) / 2));
+        var formatted = Format(text, brush, size, FontWeight.Normal);
+        dc.DrawText(formatted, new Point((Bounds.Width - formatted.Width) / 2, (Bounds.Height - formatted.Height) / 2));
     }
 
-    private void DrawText(DrawingContext dc, string text, double x, double y, Brush brush, double size, FontWeight? weight = null) =>
-        dc.DrawText(Format(text, brush, size, weight ?? FontWeights.Normal), new Point(x, y));
+    private void DrawText(DrawingContext dc, string text, double x, double y, IBrush brush, double size, FontWeight? weight = null) =>
+        dc.DrawText(Format(text, brush, size, weight ?? FontWeight.Normal), new Point(x, y));
 
-    private FormattedText Format(string text, Brush brush, double size, FontWeight weight) =>
-        new(text, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight, new Typeface(new FontFamily("Segoe UI"), FontStyles.Normal, weight, FontStretches.Normal), size, brush, VisualTreeHelper.GetDpi(this).PixelsPerDip);
+    private FormattedText Format(string text, IBrush brush, double size, FontWeight weight) =>
+        new(text, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight, new Typeface(FontFamily.Default, FontStyle.Normal, weight, FontStretch.Normal), size, brush);
 
-    private sealed record InterceptMarker(GraphLineIntercepts Item, Point Point, string Label, Brush Brush, GraphLabelAxis Axis);
+    private sealed record InterceptMarker(GraphLineIntercepts Item, Point Point, string Label, IBrush Brush, GraphLabelAxis Axis);
 }

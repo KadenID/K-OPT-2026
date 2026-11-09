@@ -38,7 +38,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         Validate();
     }
 
-    public string EditorText { get => editorText; set { if (Set(ref editorText, value)) { documentRevision++; ResetResults(); StatusText = "편집됨 · 검증 필요"; } } }
+    public string EditorText { get => editorText; set { if (Set(ref editorText, value ?? string.Empty)) { documentRevision++; ResetResults(); StatusText = "편집됨 · 검증 필요"; } } }
     public string StatusText { get => statusText; private set => Set(ref statusText, value); }
     public string EncodingText { get => encodingText; private set => Set(ref encodingText, value); }
     public string OverviewText { get => overviewText; private set => Set(ref overviewText, value); }
@@ -76,7 +76,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     }
 
     public void NewDocument() => Load(SourceDocument.FromText("MAX\r\n\r\nST\r\n\r\nEND\r\n"));
-    public void MarkSaved() => StatusText = "저장됨 · UTF-8";
+    public void MarkSaved() { EncodingText = "UTF-8"; StatusText = "저장됨 · UTF-8"; }
     public void SetKoreanResultTerms(bool value)
     {
         UseKoreanResultTerms = value;
@@ -114,7 +114,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         StatusText = Diagnostics.Count == 0 ? "유효한 모델" : $"유효 · 경고 {Diagnostics.Count}개";
     }
 
-    private async Task RunAsync()
+    public async Task RunAsync()
     {
         if (IsRunning) return;
         var runRevision = documentRevision;

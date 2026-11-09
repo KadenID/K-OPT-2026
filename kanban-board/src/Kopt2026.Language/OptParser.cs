@@ -97,23 +97,32 @@ public sealed partial class OptParser
             }
 
             var match = matches[0];
-            var left = item.Text[..match.Index].Trim();
+            var indentation = lines[item.Line - 1].Length - lines[item.Line - 1].TrimStart().Length;
+            var left = item.Text[..match.Index];
             var label = $"C{constraints.Count + 1}";
             var colon = left.IndexOf(':');
-            if (colon >= 0) { label = left[..colon].Trim(); left = left[(colon + 1)..].Trim(); }
-            var right = item.Text[(match.Index + match.Length)..].Trim();
-            if (!double.TryParse(right, NumberStyles.Float, CultureInfo.InvariantCulture, out var rhs))
-            {
-                diagnostics.Add(Error("KOP013", item.Line, match.Index + match.Length + 1, "제약식 우변은 숫자여야 합니다.", "변수 항을 좌변으로 이동하십시오."));
-                continue;
-            }
-            var expr = ParseExpression(left, item.Line, diagnostics, variables);
+            var leftOffset = colon >= 0 ? colon + 1 : 0;
+            if (colon >= 0) { label = left[..colon].Trim(); left = left[leftOffset..]; }
+            var rightOffset = match.Index + match.Length;
+            var right = item.Text[rightOffset..];
+            var lhs = ParseExpression(left, item.Line, diagnostics, variables,
+                offset => (item.Line, indentation + leftOffset + offset + 1), allowConstants: true);
+            var rhs = ParseExpression(right, item.Line, diagnostics, variables,
+                offset => (item.Line, indentation + rightOffset + offset + 1), allowConstants: true);
             var relation = match.Value switch { "<=" => Relation.LessOrEqual, ">=" => Relation.GreaterOrEqual, _ => Relation.Equal };
-            if (expr is not null)
+            if (lhs is not null && rhs is not null)
             {
-                var normalizedRightHandSide = rhs - expr.Constant;
-                var normalizedExpression = expr.Constant == 0 ? expr : expr with { Constant = 0 };
-                constraints.Add(new($"row-{constraints.Count + 1}", label, normalizedExpression, relation, normalizedRightHandSide, new(item.Line, 1, item.Text.Length)));
+                // Normalize both sides once so solving, graphs and sensitivity use the same constraint.
+                var coefficients = new Dictionary<string, double>(lhs.Coefficients, StringComparer.OrdinalIgnoreCase);
+                foreach (var term in rhs.Coefficients)
+                    coefficients[term.Key] = coefficients.GetValueOrDefault(term.Key) - term.Value;
+                var normalizedRightHandSide = rhs.Constant - lhs.Constant;
+                if (!double.IsFinite(normalizedRightHandSide) || coefficients.Values.Any(value => !double.IsFinite(value)))
+                {
+                    diagnostics.Add(Error("KOP013", item.Line, indentation + match.Index + 1, "제약식을 정리한 값이 표현 가능한 숫자 범위를 초과했습니다.", "계수와 상수의 크기를 줄이십시오."));
+                    continue;
+                }
+                constraints.Add(new($"row-{constraints.Count + 1}", label, new(coefficients, 0), relation, normalizedRightHandSide, new(item.Line, indentation + 1, item.Text.Length)));
             }
         }
 
@@ -131,7 +140,7 @@ public sealed partial class OptParser
     }
 
     private static LinearExpression? ParseExpression(string text, int line, List<Diagnostic> diagnostics, Dictionary<string, Variable> variables,
-        Func<int, (int Line, int Column)>? sourcePosition = null)
+        Func<int, (int Line, int Column)>? sourcePosition = null, bool allowConstants = false)
     {
         (int Line, int Column) Position(int offset)
         {
@@ -162,23 +171,34 @@ public sealed partial class OptParser
             cursor = match.Index + match.Length;
             var sign = match.Groups[1].Value == "-" ? -1d : 1d;
             var name = match.Groups[3].Value;
+            var numberText = match.Groups[name.Length > 0 ? 2 : 4].Value;
+            var value = 1d;
+            if (numberText.Length > 0 && (!double.TryParse(numberText, NumberStyles.Float, CultureInfo.InvariantCulture, out value) || !double.IsFinite(value)))
+            {
+                diagnostics.Add(ExpressionError(match.Index, "숫자가 표현 가능한 범위를 초과했습니다.", "계수와 상수의 크기를 줄이십시오."));
+                return null;
+            }
+            value *= sign;
             if (name.Length > 0)
             {
-                var numberText = match.Groups[2].Value;
-                var coefficient = string.IsNullOrEmpty(numberText) ? 1d : double.Parse(numberText, CultureInfo.InvariantCulture);
                 if (coefficients.TryGetValue(name, out var prior))
                 {
-                    coefficients[name] = prior + sign * coefficient;
+                    coefficients[name] = prior + value;
                     var position = Position(match.Groups[3].Index);
                     diagnostics.Add(new("KOP040", DiagnosticSeverity.Warning, new(position.Line, position.Column, name.Length), $"{name}의 중복 항을 합산했습니다.", "읽기 쉬운 식으로 정리하는 것을 권장합니다."));
                 }
-                else coefficients[name] = sign * coefficient;
+                else coefficients[name] = value;
                 if (!variables.ContainsKey(name)) variables[name] = new($"col-{variables.Count + 1}", name, VariableType.Continuous);
             }
-            else constant += sign * double.Parse(match.Groups[4].Value, CultureInfo.InvariantCulture);
+            else constant += value;
+            if (!double.IsFinite(constant) || (name.Length > 0 && !double.IsFinite(coefficients[name])))
+            {
+                diagnostics.Add(ExpressionError(match.Index, "항을 합산한 값이 표현 가능한 숫자 범위를 초과했습니다.", "계수와 상수의 크기를 줄이십시오."));
+                return null;
+            }
             isFirstTerm = false;
         }
-        if (!string.IsNullOrWhiteSpace(text[cursor..]) || coefficients.Count == 0)
+        if (!string.IsNullOrWhiteSpace(text[cursor..]) || isFirstTerm || (!allowConstants && coefficients.Count == 0))
         {
             diagnostics.Add(ExpressionError(cursor, "선형식을 해석할 수 없습니다.", "예: 3 X1 + 2 X2"));
             return null;

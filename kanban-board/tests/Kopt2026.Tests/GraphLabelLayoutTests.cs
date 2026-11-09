@@ -1,4 +1,4 @@
-using System.Windows;
+using Avalonia;
 using Kopt2026.App;
 
 namespace Kopt2026.Tests;
@@ -51,6 +51,6 @@ public sealed class GraphLabelLayoutTests
         var items = rectangles.ToList();
         for (var i = 0; i < items.Count; i++)
             for (var j = i + 1; j < items.Count; j++)
-                Assert.False(items[i].IntersectsWith(items[j]), $"Label rectangles overlap: {items[i]} and {items[j]}");
+                Assert.False(items[i].Intersects(items[j]), $"Label rectangles overlap: {items[i]} and {items[j]}");
     }
 }
